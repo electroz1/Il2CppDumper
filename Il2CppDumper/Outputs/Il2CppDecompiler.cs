@@ -14,6 +14,8 @@ namespace Il2CppDumper
         private readonly Il2Cpp il2Cpp;
         private readonly Dictionary<Il2CppMethodDefinition, string> methodModifiers;
 
+        private static readonly IReadOnlyList<string> WhitelistedNamespaces = ["DecaGames"];
+
         public Il2CppDecompiler(Il2CppExecutor il2CppExecutor)
         {
             executor = il2CppExecutor;
@@ -26,17 +28,22 @@ namespace Il2CppDumper
         {
             var writer = new StreamWriter(new FileStream(outputDir + "dump.cs", FileMode.Create), new UTF8Encoding(false));
             //dump image
-            for (var imageIndex = 0; imageIndex < metadata.imageDefs.Length; imageIndex++)
-            {
-                var imageDef = metadata.imageDefs[imageIndex];
-                writer.Write($"// Image {imageIndex}: {metadata.GetStringFromIndex(imageDef.nameIndex)} - {imageDef.typeStart}\n");
-            }
+            //for (var imageIndex = 0; imageIndex < metadata.imageDefs.Length; imageIndex++)
+            //{
+            //    var imageDef = metadata.imageDefs[imageIndex];
+            //    writer.Write($"// Image {imageIndex}: {metadata.GetStringFromIndex(imageDef.nameIndex)} - {imageDef.typeStart}\n");
+            //}
             //dump type
             foreach (var imageDef in metadata.imageDefs)
             {
                 try
                 {
                     var imageName = metadata.GetStringFromIndex(imageDef.nameIndex);
+
+                    if (imageName != "Assembly-CSharp.dll") continue;
+
+                    List<(string, int)> typesWithName = new();
+
                     var typeEnd = imageDef.typeStart + imageDef.typeCount;
                     for (int typeDefIndex = imageDef.typeStart; typeDefIndex < typeEnd; typeDefIndex++)
                     {
@@ -51,6 +58,28 @@ namespace Il2CppDumper
                                 extends.Add(parentName);
                             }
                         }
+
+                        string namespaceName = metadata.GetStringFromIndex(typeDef.namespaceIndex);
+                        bool isWhitelistedNamespace = namespaceName == "" || WhitelistedNamespaces.Any(prefix => namespaceName.StartsWith(prefix));
+                        if (!isWhitelistedNamespace) continue;
+
+                        string typeName = executor.GetTypeDefName(typeDef, false, true);
+
+                        if (typeName.StartsWith("<")) continue;
+
+                        string customAttribute = GetCustomAttribute(imageDef, typeDef.customAttributeIndex, typeDef.token);
+                        if (customAttribute.Contains("CompilerGenerated")) continue;
+
+                        typesWithName.Add((typeName, typeDefIndex));
+                    }
+
+                    typesWithName.Sort((x, y) => string.Compare(x.Item1, y.Item1, StringComparison.Ordinal));
+
+                    foreach (var typeDefWithName in typesWithName)
+                    {
+                        var typeDefIndex = typeDefWithName.Item2;
+                        var typeDef = metadata.typeDefs[typeDefIndex];
+                        var extends = new List<string>();
                         if (typeDef.interfaces_count > 0)
                         {
                             for (int i = 0; i < typeDef.interfaces_count; i++)

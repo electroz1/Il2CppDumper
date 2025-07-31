@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Il2CppDumper": {
+      "commandName": "Project",
+      "commandLineArgs": "\"C:\\Users\\dehga\\OneDrive\\Documents\\RealmOfTheMadGod\\Production\\DIA4A\\global-metadata.dat\" \"C:\\Users\\dehga\\OneDrive\\Documents\\RealmOfTheMadGod\\Production\\GameAssembly.dll\""
+    }
+  }
+}
